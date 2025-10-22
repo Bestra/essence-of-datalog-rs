@@ -278,7 +278,7 @@ fn unify(atom1: &Atom, atom2: &Atom) -> Option<Substitution> {
             }
             // Variable in second atom: not allowed (second atom should be ground)
             (_, Term::Var(_)) => {
-                panic!("The second atom is assumed to be ground (contain no variables). This typically means a fact in the knowledge base has variables, which is not allowed.");
+                panic!("Cannot unify with a variable in the second position. Expected a concrete value.");
             }
         }
     }
@@ -396,11 +396,12 @@ fn query(pred_sym: &str, pr: &Program) -> Vec<Substitution> {
         .collect();
     
     if query_rules.is_empty() {
-        let available_predicates: Vec<_> = pr.iter()
+        let mut available_predicates: Vec<_> = pr.iter()
             .map(|r| r.head.pred_sym.as_str())
             .collect::<std::collections::HashSet<_>>()
             .into_iter()
             .collect();
+        available_predicates.sort();
         panic!("The query '{}' doesn't exist. Available predicates: {:?}", pred_sym, available_predicates);
     }
     
