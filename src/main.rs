@@ -1,62 +1,5 @@
 use std::collections::HashMap;
 
-fn main() {
-    println!("=== Essence of Datalog - Rust Implementation ===\n");
-    
-    // Build the ancestor program
-    let program = build_ancestor_program();
-    
-    println!("Running the ancestor program...\n");
-    
-    // Solve the program
-    let kb = solve(&program);
-    
-    println!("Knowledge base after solving ({} facts):", kb.len());
-    println!("(Showing academicAncestor relationships only)\n");
-    
-    // Display academicAncestor relationships
-    for atom in kb.iter().filter(|a| a.pred_sym == "academicAncestor") {
-        if let [Term::Sym(from), Term::Sym(to)] = &atom.terms[..] {
-            println!("  {} -> {}", from, to);
-        }
-    }
-    
-    println!("\n=== Running Queries ===\n");
-    
-    // Query 1: Who is an intermediate ancestor between Robin Milner and Mistral Contrastin?
-    println!("Query 1: Who connects Robin Milner to Mistral Contrastin?");
-    let results1 = query("query1", &program);
-    if results1.is_empty() {
-        println!("  No results found.");
-    } else {
-        for sub in &results1 {
-            if let Some(Term::Sym(name)) = sub.get(&Term::var("Intermediate")) {
-                println!("  Intermediate: {}", name);
-            }
-        }
-    }
-    
-    // Query 2: Is Alan Turing an ancestor of Mistral Contrastin?
-    println!("\nQuery 2: Is Alan Turing an ancestor of Mistral Contrastin?");
-    let results2 = query("query2", &program);
-    if results2.is_empty() {
-        println!("  No");
-    } else {
-        println!("  Yes");
-    }
-    
-    // Query 3: Is David Wheeler an ancestor of Mistral Contrastin?
-    println!("\nQuery 3: Is David Wheeler an ancestor of Mistral Contrastin?");
-    let results3 = query("query3", &program);
-    if results3.is_empty() {
-        println!("  No");
-    } else {
-        println!("  Yes");
-    }
-    
-    println!("\n=== Complete! ===");
-}
-
 fn build_ancestor_program() -> Program {
     // Facts: adviser relationships
     let facts = vec![
@@ -190,6 +133,63 @@ fn build_ancestor_program() -> Program {
     facts.into_iter().chain(rules).chain(queries).collect()
 }
 
+fn main() {
+    println!("=== Essence of Datalog - Rust Implementation ===\n");
+    
+    // Build the ancestor program
+    let program = build_ancestor_program();
+    
+    println!("Running the ancestor program...\n");
+    
+    // Solve the program
+    let kb = solve(&program);
+    
+    println!("Knowledge base after solving ({} facts):", kb.len());
+    println!("(Showing academicAncestor relationships only)\n");
+    
+    // Display academicAncestor relationships
+    for atom in kb.iter().filter(|a| a.pred_sym == "academicAncestor") {
+        if let [Term::Sym(from), Term::Sym(to)] = &atom.terms[..] {
+            println!("  {} -> {}", from, to);
+        }
+    }
+    
+    println!("\n=== Running Queries ===\n");
+    
+    // Query 1: Who is an intermediate ancestor between Robin Milner and Mistral Contrastin?
+    println!("Query 1: Who connects Robin Milner to Mistral Contrastin?");
+    let results1 = query("query1", &program);
+    if results1.is_empty() {
+        println!("  No results found.");
+    } else {
+        for sub in &results1 {
+            if let Some(Term::Sym(name)) = sub.get(&Term::var("Intermediate")) {
+                println!("  Intermediate: {}", name);
+            }
+        }
+    }
+    
+    // Query 2: Is Alan Turing an ancestor of Mistral Contrastin?
+    println!("\nQuery 2: Is Alan Turing an ancestor of Mistral Contrastin?");
+    let results2 = query("query2", &program);
+    if results2.is_empty() {
+        println!("  No");
+    } else {
+        println!("  Yes");
+    }
+    
+    // Query 3: Is David Wheeler an ancestor of Mistral Contrastin?
+    println!("\nQuery 3: Is David Wheeler an ancestor of Mistral Contrastin?");
+    let results3 = query("query3", &program);
+    if results3.is_empty() {
+        println!("  No");
+    } else {
+        println!("  Yes");
+    }
+    
+    println!("\n=== Complete! ===");
+}
+
 #[derive(PartialEq, Eq, Hash, Debug, Clone)]
 pub enum Term {
     Var(String),
@@ -278,7 +278,7 @@ fn unify(atom1: &Atom, atom2: &Atom) -> Option<Substitution> {
             }
             // Variable in second atom: not allowed (second atom should be ground)
             (_, Term::Var(_)) => {
-                panic!("The second atom is assumed to be ground.");
+                panic!("The second atom is assumed to be ground (contain no variables). This typically means a fact in the knowledge base has variables, which is not allowed.");
             }
         }
     }
@@ -359,7 +359,7 @@ fn immediate_consequence(rules: &Program, kb: &KnowledgeBase) -> KnowledgeBase {
 fn solve(rules: &Program) -> KnowledgeBase {
     // Check if all rules are range-restricted
     if !rules.iter().all(is_range_restricted) {
-        panic!("The input program is not range-restricted.");
+        panic!("The input program is not range-restricted. All variables in a rule's head must appear in its body to ensure termination.");
     }
     
     let mut kb = Vec::new();
@@ -396,11 +396,16 @@ fn query(pred_sym: &str, pr: &Program) -> Vec<Substitution> {
         .collect();
     
     if query_rules.is_empty() {
-        panic!("The query '{}' doesn't exist.", pred_sym);
+        let available_predicates: Vec<_> = pr.iter()
+            .map(|r| r.head.pred_sym.as_str())
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect();
+        panic!("The query '{}' doesn't exist. Available predicates: {:?}", pred_sym, available_predicates);
     }
     
     if query_rules.len() > 1 {
-        panic!("The query '{}' has multiple clauses.", pred_sym);
+        panic!("The query '{}' has multiple clauses. Queries must be defined with a single rule.", pred_sym);
     }
     
     let query_rule = query_rules[0];
@@ -573,142 +578,9 @@ mod tests {
         assert!(is_range_restricted(&rule3));
     }
 
-    fn make_ancestor_program() -> Program {
-        // Facts: adviser relationships
-        let facts = vec![
-            Rule {
-                head: Atom {
-                    pred_sym: "adviser".to_string(),
-                    terms: vec![Term::sym("Andrew Rice"), Term::sym("Mistral Contrastin")],
-                },
-                body: vec![],
-            },
-            Rule {
-                head: Atom {
-                    pred_sym: "adviser".to_string(),
-                    terms: vec![Term::sym("Dominic Orchard"), Term::sym("Mistral Contrastin")],
-                },
-                body: vec![],
-            },
-            Rule {
-                head: Atom {
-                    pred_sym: "adviser".to_string(),
-                    terms: vec![Term::sym("Andy Hopper"), Term::sym("Andrew Rice")],
-                },
-                body: vec![],
-            },
-            Rule {
-                head: Atom {
-                    pred_sym: "adviser".to_string(),
-                    terms: vec![Term::sym("Alan Mycroft"), Term::sym("Dominic Orchard")],
-                },
-                body: vec![],
-            },
-            Rule {
-                head: Atom {
-                    pred_sym: "adviser".to_string(),
-                    terms: vec![Term::sym("David Wheeler"), Term::sym("Andy Hopper")],
-                },
-                body: vec![],
-            },
-            Rule {
-                head: Atom {
-                    pred_sym: "adviser".to_string(),
-                    terms: vec![Term::sym("Rod Burstall"), Term::sym("Alan Mycroft")],
-                },
-                body: vec![],
-            },
-            Rule {
-                head: Atom {
-                    pred_sym: "adviser".to_string(),
-                    terms: vec![Term::sym("Robin Milner"), Term::sym("Alan Mycroft")],
-                },
-                body: vec![],
-            },
-        ];
-        
-        // Rules: academicAncestor definition
-        let rules = vec![
-            // academicAncestor(X,Y) :- adviser(X,Y).
-            Rule {
-                head: Atom {
-                    pred_sym: "academicAncestor".to_string(),
-                    terms: vec![Term::var("X"), Term::var("Y")],
-                },
-                body: vec![Atom {
-                    pred_sym: "adviser".to_string(),
-                    terms: vec![Term::var("X"), Term::var("Y")],
-                }],
-            },
-            // academicAncestor(X,Z) :- adviser(X,Y), academicAncestor(Y,Z).
-            Rule {
-                head: Atom {
-                    pred_sym: "academicAncestor".to_string(),
-                    terms: vec![Term::var("X"), Term::var("Z")],
-                },
-                body: vec![
-                    Atom {
-                        pred_sym: "adviser".to_string(),
-                        terms: vec![Term::var("X"), Term::var("Y")],
-                    },
-                    Atom {
-                        pred_sym: "academicAncestor".to_string(),
-                        terms: vec![Term::var("Y"), Term::var("Z")],
-                    },
-                ],
-            },
-        ];
-        
-        // Queries
-        let queries = vec![
-            // Query 1: ?- academicAncestor("Robin Milner", Intermediate), academicAncestor(Intermediate, "Mistral Contrastin")
-            Rule {
-                head: Atom {
-                    pred_sym: "query1".to_string(),
-                    terms: vec![Term::var("Intermediate")],
-                },
-                body: vec![
-                    Atom {
-                        pred_sym: "academicAncestor".to_string(),
-                        terms: vec![Term::sym("Robin Milner"), Term::var("Intermediate")],
-                    },
-                    Atom {
-                        pred_sym: "academicAncestor".to_string(),
-                        terms: vec![Term::var("Intermediate"), Term::sym("Mistral Contrastin")],
-                    },
-                ],
-            },
-            // Query 2: ?- academicAncestor("Alan Turing", "Mistral Contrastin")
-            Rule {
-                head: Atom {
-                    pred_sym: "query2".to_string(),
-                    terms: vec![],
-                },
-                body: vec![Atom {
-                    pred_sym: "academicAncestor".to_string(),
-                    terms: vec![Term::sym("Alan Turing"), Term::sym("Mistral Contrastin")],
-                }],
-            },
-            // Query 3: ?- academicAncestor("David Wheeler", "Mistral Contrastin")
-            Rule {
-                head: Atom {
-                    pred_sym: "query3".to_string(),
-                    terms: vec![],
-                },
-                body: vec![Atom {
-                    pred_sym: "academicAncestor".to_string(),
-                    terms: vec![Term::sym("David Wheeler"), Term::sym("Mistral Contrastin")],
-                }],
-            },
-        ];
-        
-        // Combine all into program
-        facts.into_iter().chain(rules).chain(queries).collect()
-    }
-
     #[test]
     fn test_ancestor_program_solve() {
-        let program = make_ancestor_program();
+        let program = build_ancestor_program();
         let kb = solve(&program);
         
         // Check that we have adviser facts
@@ -726,7 +598,7 @@ mod tests {
 
     #[test]
     fn test_query1() {
-        let program = make_ancestor_program();
+        let program = build_ancestor_program();
         let results = query("query1", &program);
         
         // Query 1 should find intermediate ancestors between Robin Milner and Mistral Contrastin
@@ -746,7 +618,7 @@ mod tests {
 
     #[test]
     fn test_query2() {
-        let program = make_ancestor_program();
+        let program = build_ancestor_program();
         let results = query("query2", &program);
         
         // Query 2: Alan Turing is NOT an ancestor of Mistral Contrastin
@@ -755,7 +627,7 @@ mod tests {
 
     #[test]
     fn test_query3() {
-        let program = make_ancestor_program();
+        let program = build_ancestor_program();
         let results = query("query3", &program);
         
         // Query 3: David Wheeler IS an ancestor of Mistral Contrastin
