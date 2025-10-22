@@ -82,7 +82,7 @@ The `unify` function is the heart of the Datalog engine. It must:
 3. Implement `unify` (test thoroughly!)
 4. Implement evaluation pipeline: `eval_atom` → `walk` → `eval_rule`
 5. Implement safety and control: `is_range_restricted` → `immediate_consequence` → `solve`
-6. Add example program
+6. Add example `ancestor` program (7 adviser facts, 2 academicAncestor rules, 3 queries)
 7. Add comprehensive tests
 
 ## Key Semantic Concepts
